@@ -39,7 +39,7 @@ public class LevelGenerator : MonoBehaviour {
 			dir = latestTile.transform.forward;
 			if (v < bendProbability) {
 				// don't bend more than 180 degrees
-				if (b <= 0 && (b <= -1 || v < bendProbability/2)) {
+				if (b <= 2 && (b <= -2 || v < bendProbability/2)) {
 					++b;
 					dir = rightRotation * dir;
 				} else {
