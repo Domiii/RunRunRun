@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 [RequireComponent(typeof(Rigidbody))]
 public class Player : MonoBehaviour {
-	public float speed = 6.0f, maxSpeed = 22, acceleration = 1;
+	public CollisionBuffer frontBuffer;
+	public float speed = 6.0f, maxSpeed = 16, acceleration = 1;
 	public float turnSpeed = 3;
 	public float jumpPower = 8;
 	public Vector3 Forward = Vector3.forward;
@@ -14,6 +15,7 @@ public class Player : MonoBehaviour {
 	int groundLayerMask, groundLayerIndex;
 	Quaternion leftRotation, rightRotation;
 	HashSet<GameObject> groundColliders;
+	Vector3 lastPos;
 
 
 	public GroundTile GetCurrentGroundTile() {
@@ -42,30 +44,39 @@ public class Player : MonoBehaviour {
 	}
 
 	void Update () {
-		// accelerate
-		if (speed < maxSpeed) {
-			speed = Mathf.Min (maxSpeed, speed + acceleration * Time.fixedDeltaTime);
-		}
-
-		// jump
-		if (IsOnGround && Input.GetAxisRaw ("Jump") > 0) {
-			body.velocity += Vector3.up * jumpPower;
-		}
-
-
-		// update direction of rotation
+		UpdateDistance ();
+		Accelerate ();
+		Jump();
 		UpdateRotation ();
 	}
 
 	void FixedUpdate() {
-		// keep turning
-		KeepTurning();
+		Turn();
+		PushForward ();
+	}
 
-		// keep going!
-		var v = Forward * speed;
-		v.y = body.velocity.y;
+	void UpdateDistance() {
+		// remember total distance travelled
+		var delta = transform.position - lastPos;
+		// project movement delta onto forward direction (only add the distance travelled in forward direction)
+		var currentTile = GetCurrentGroundTile();
+		if (currentTile != null) {
+			var dist = Vector3.Dot (delta, currentTile.transform.forward);
+			GameManager.Instance.AddDistance (dist);
+			lastPos = transform.position;
+		}
+	}
 
-		body.velocity = v;
+	void Accelerate() {
+		if (speed < maxSpeed) {
+			speed = Mathf.Min (maxSpeed, speed + acceleration * Time.fixedDeltaTime);
+		}
+	}
+
+	void Jump() {
+		if (IsOnGround && Input.GetAxisRaw ("Jump") > 0) {
+			body.velocity += Vector3.up * jumpPower;
+		}
 	}
 
 	void UpdateRotation() {
@@ -78,13 +89,23 @@ public class Player : MonoBehaviour {
 		}
 	}
 
-	void KeepTurning() {
+	void Turn() {
 		Forward = Vector3.RotateTowards(Forward, targetForward, turnSpeed * Time.fixedDeltaTime, 100000);
+	}
+
+	void PushForward() {
+		var v = Forward * speed;
+		v.y = body.velocity.y;
+		body.velocity = v;
 	}
 
 	void OnCollisionEnter(Collision other) {
 		if (other.gameObject.layer == groundLayerIndex && other.contacts[0].point.y < transform.position.y) {
 			groundColliders.Add (other.gameObject);
+		}
+		if (frontBuffer != null && frontBuffer.colliders.Contains (other.collider)) {
+			// we ran into something -> Dead!
+
 		}
 	}
 

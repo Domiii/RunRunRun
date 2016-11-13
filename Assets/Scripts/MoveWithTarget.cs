@@ -11,14 +11,14 @@ public class MoveWithTarget : MonoBehaviour {
 		offset = transform.position - target.transform.position;
 	}
 
-	void Update () {
+	void FixedUpdate () {
 		if (target != null) {
 			transform.position = target.transform.position + offset;
 			var v = target.velocity;
 			v.y = 0;
 			if (v.sqrMagnitude > 0) {
 				v.Normalize ();
-				transform.forward = v;
+				transform.forward = Vector3.Slerp(transform.forward, v, Time.deltaTime * 8);
 			}
 		}
 	}

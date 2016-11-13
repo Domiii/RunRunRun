@@ -13,10 +13,10 @@ public class LevelGenerator : MonoBehaviour {
 	int nVisitedTiles;
 	GroundTile latestTile;
 	Bounds tileBounds;
-	float tileRadiusMax;
+	//float tileRadiusMax;
 	List<GroundTile> tiles;
 	Quaternion leftRotation, rightRotation;
-	Collider[] collisionColliders;
+	Collider[] colliderBuffer;
 
 	public int RemainingTiles {
 		get {
@@ -38,8 +38,8 @@ public class LevelGenerator : MonoBehaviour {
 			var v = Random.value;
 			dir = latestTile.transform.forward;
 			if (v < bendProbability) {
-				// don't bend more than 180 degrees
-				if (b <= 2 && (b <= -2 || v < bendProbability/2)) {
+				// don't bend more than 90 degrees
+				if (b < 1 && (b <= -1 || v < bendProbability/2)) {
 					++b;
 					dir = rightRotation * dir;
 				} else {
@@ -48,8 +48,9 @@ public class LevelGenerator : MonoBehaviour {
 				}
 			}
 
-			var testPos = NewTilePosition (2*dir);
-			if (Physics.OverlapSphereNonAlloc (testPos, tileRadiusMax * 1.9f, collisionColliders) == 1) {
+			var testPos = NewTilePosition (dir);
+			if (Physics.OverlapBoxNonAlloc (testPos, tileBounds.extents * 1.1f, colliderBuffer) <= 2) {
+				//print (testPos + " <> " + colliderBuffer[0].transform.position);
 				// good!
 				bend = b;
 				break;
@@ -71,7 +72,7 @@ public class LevelGenerator : MonoBehaviour {
 	}
 
 	void Reset() {
-		collisionColliders = new Collider[64];
+		colliderBuffer = new Collider[64];
 		tiles = new List<GroundTile>();
 		leftRotation = Quaternion.Euler (0, -90, 0);
 		rightRotation = Quaternion.Euler (0, 90, 0);
@@ -82,7 +83,7 @@ public class LevelGenerator : MonoBehaviour {
 
 		latestTile = sourceTile;
 		tileBounds = sourceTile.GetComponent<MeshRenderer>().bounds;
-		tileRadiusMax = Mathf.Max(tileBounds.extents.x, tileBounds.extents.z);
+		//tileRadiusMax = Mathf.Max(tileBounds.extents.x, tileBounds.extents.z);
 
 		sourceTile.tileIndex = Vector2.zero;
 		AddTile (player.Forward);

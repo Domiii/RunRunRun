@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using System.Collections;
-using UnityEngine.SceneManagement;
 
 public class DeathTrap : MonoBehaviour {
 
@@ -8,7 +7,7 @@ public class DeathTrap : MonoBehaviour {
 		var player = other.GetComponent<Player> ();
 		if (player != null) {
 			// reset scene!
-			SceneManager.LoadScene (SceneManager.GetActiveScene().name);
+			GameManager.Instance.GameOver();
 		}
 	}
 }
