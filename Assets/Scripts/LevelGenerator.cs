@@ -1,16 +1,22 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 
 public class LevelGenerator : MonoBehaviour {
+	const int nSafeTilesAfterBend = 3;
+
 	public GroundTile tilePrefab;
 	public GroundTile sourceTile;
 	public Player player;
-	public float bendProbability = 0.2f;
-	public float advanceTiles = 40;
+	public float bendChance = 0.12f;
+	public float obstacleChance = 0.2f;
+	public int advanceTiles = 40;
+	public Obstacle[] obstaclePrefabs;
 
 	int bend;
-	int nVisitedTiles;
+	int nVisitedTiles, nTotalTiles;
+	int nTilesSinceLastBend;
 	GroundTile latestTile;
 	Bounds tileBounds;
 	//float tileRadiusMax;
@@ -20,39 +26,55 @@ public class LevelGenerator : MonoBehaviour {
 
 	public int RemainingTiles {
 		get {
-			return tiles.Count - nVisitedTiles;
+			return nTotalTiles - nVisitedTiles;
+		}
+	}
+
+	public int MaxTiles {
+		get {
+			return 2 * advanceTiles;
 		}
 	}
 
 	public void GenerateMoreTiles() {
-		while (RemainingTiles < advanceTiles) {
+		if (RemainingTiles < advanceTiles) {
 			GenerateNextTile ();
+		}
+		if (tiles.Count > MaxTiles) {
+			// start removing old tiles
+			var tile = tiles[0];
+			Destroy (tile.gameObject);
+			tiles.RemoveAt(0);
 		}
 	}
 
 	public void GenerateNextTile() {
 		Vector3 dir;
+		bool isBend;
+		int bendCount;
 		var nTries = 0;
+
 		while (true) {
-			var b = bend;
+			isBend = false;
+			bendCount = bend;
 			var v = Random.value;
 			dir = latestTile.transform.forward;
-			if (v < bendProbability) {
+			if (v < bendChance) {
+				isBend = true;
 				// don't bend more than 90 degrees
-				if (b < 1 && (b <= -1 || v < bendProbability/2)) {
-					++b;
+				if (bendCount < 1 && (bendCount <= -1 || v < bendChance/2)) {
+					++bendCount;
 					dir = rightRotation * dir;
 				} else {
-					--b;
+					--bendCount;
 					dir = leftRotation * dir;
 				}
 			}
 
-			var testPos = NewTilePosition (dir);
+			var testPos = GetNextTilePosition(dir, GetNextTilePosition ());
 			if (Physics.OverlapBoxNonAlloc (testPos, tileBounds.extents * 1.1f, colliderBuffer) <= 2) {
 				//print (testPos + " <> " + colliderBuffer[0].transform.position);
 				// good!
-				bend = b;
 				break;
 			}
 
@@ -62,13 +84,28 @@ public class LevelGenerator : MonoBehaviour {
 			}
 		}
 
-		AddTile (dir);
+		// update book-keeping
+		bend = bendCount;
+		if (isBend) {
+			nTilesSinceLastBend = 0;
+		}
+		else {
+			++nTilesSinceLastBend;
+		}
+
+		AddTile (dir, nTilesSinceLastBend > nSafeTilesAfterBend);
 	}
 
 	public void Clear() {
 		// delete all tiles
 		tiles.ForEach(t => DestroyImmediate(t));
 		tiles.Clear ();
+	}
+
+	public Transform TileContainer {
+		get {
+			return latestTile.transform.parent;
+		}
 	}
 
 	void Reset() {
@@ -86,11 +123,15 @@ public class LevelGenerator : MonoBehaviour {
 		//tileRadiusMax = Mathf.Max(tileBounds.extents.x, tileBounds.extents.z);
 
 		sourceTile.tileIndex = Vector2.zero;
-		AddTile (player.Forward);
+
+		// let's get going!
+		RegisterTile (sourceTile);
+		AddTile (player.Forward, false);
+		AddTile (player.Forward, false);
 	}
 
 	void Update () {
-		var currentGroundTile = player.GetCurrentGroundTile ();
+		var currentGroundTile = player.CurrentGroundTile;
 		MarkTilesVisited (currentGroundTile);
 
 		GenerateMoreTiles ();
@@ -111,33 +152,54 @@ public class LevelGenerator : MonoBehaviour {
 		return index;
 	}
 
-	Vector3 NewTilePosition(Vector3 direction) {
+	Vector3 GetNextTilePosition() {
+		// compute new position
+		return GetNextTilePosition(latestTile.transform.forward, latestTile.transform.position);
+	}
+
+	Vector3 GetNextTilePosition(Vector3 direction, Vector3 position) {
 		// compute new position
 		var dist = 2 * Mathf.Abs(Vector3.Dot(direction, tileBounds.extents));
-		var pos = latestTile.transform.position + dist * direction;
+		var pos = position + dist * direction;
 		return pos;
 	}
 
-	GroundTile AddTile(Vector3 direction) {
-		return AddTile (NewTilePosition(direction), direction);
+	GroundTile AddTile(Vector3 direction, bool decorate = true) {
+		return AddTile (GetNextTilePosition(), direction, decorate);
 	}
 
-	GroundTile AddTile(Vector3 pos, Vector3 direction) {
+	GroundTile AddTile(Vector3 pos, Vector3 direction, bool decorate = true) {
 		// create new tile
-		var newTile = (GroundTile)Instantiate (tilePrefab, pos, Quaternion.identity, latestTile.transform.parent);
+		var newTile = (GroundTile)Instantiate (tilePrefab, pos, Quaternion.identity, TileContainer);
 		newTile.tileIndex = NewIndex(latestTile.tileIndex, direction);
 		newTile.transform.forward = direction;
 		newTile.back = latestTile;
 		latestTile.forward = newTile;
-		tiles.Add (newTile);
+
+		RegisterTile (newTile);
 
 		// decorate
-		DecorateNewTile (newTile);
+		if (decorate) {
+			DecorateNewTile (newTile);
+		}
 		latestTile = newTile;
 		return newTile;
 	}
 
+	void RegisterTile(GroundTile tile) {
+		tiles.Add (tile);
+		++nTotalTiles;
+	}
+
 	void DecorateNewTile(GroundTile newTile) {
-		// TODO: Add interesting features to new tiles
+		var prefabs = obstaclePrefabs.Where(o => GameManager.Instance.TotalDistance >= o.minDistance && Random.value < obstacleChance);
+
+		foreach (var prefab in prefabs) {
+			var obj = (Obstacle)Instantiate(prefab);
+			obj.transform.SetParent (newTile.transform, true);
+			obj.transform.position += newTile.transform.position;
+			obj.transform.forward = newTile.transform.forward;
+			//newTile.GetComponent<Renderer> ().material = obj.GetComponent<Renderer> ().material;		// mark tile by painting in object's material
+		}
 	}
 }
