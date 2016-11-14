@@ -10,9 +10,6 @@ public class Obstacle : MonoBehaviour {
 	public float speedZ = 0;
 	public float minDistance = 0;
 
-	public MeshRenderer mesh;
-
-	Bounds bounds;
 	Vector3 localExtents;
 	Bounds parentBounds;
 
@@ -31,24 +28,35 @@ public class Obstacle : MonoBehaviour {
 	}
 
 	void Start() {
-		// get renderer
-		if (mesh == null) {
-			mesh = GetComponent<MeshRenderer> ();
-			if (mesh == null) {
-				Debug.LogError (GetType().Name +  " is missing MeshRenderer!", this);
-				return;
-			}
-		}
+		ComputeExtends ();
 
 		// setup!
 		Invoke("DoSetup", 0.1f);
 	}
 
-	void DoSetup() {
-		// get bounds
-		bounds = mesh.bounds;
-		localExtents = bounds.extents;
+	void ComputeExtends() {
+		var mesh = GetComponent<MeshRenderer> ();
+		if (mesh != null) {
+			// single mesh
+			localExtents = mesh.bounds.extents;
+		}
+		else {
+			// multiple meshes!
+			var meshes = GetComponentsInChildren<MeshRenderer> ();
+			if (meshes != null && meshes.Length > 0) {
+				var bounds = meshes [0].bounds;
+				for (var i = 1; i < meshes.Length; ++i) {
+					bounds.Expand(meshes [i].bounds.extents);
+				}
+				localExtents = bounds.extents;
+			}
+			else {
+				Debug.LogError (GetType().Name +  " is missing MeshRenderer!", this);
+			}
+		}
+	}
 
+	void DoSetup() {
 		// get parent and local information
 		if (transform.parent != null) {
 			var parentMesh = transform.parent.GetComponent<MeshRenderer> ();
@@ -60,6 +68,8 @@ public class Obstacle : MonoBehaviour {
 				localExtents *= 0.5f;
 			}
 		}
+
+		localExtents = transform.rotation * localExtents;
 
 		InitPosition ();
 	}

@@ -172,6 +172,7 @@ public class LevelGenerator : MonoBehaviour {
 		// create new tile
 		var newTile = (GroundTile)Instantiate (tilePrefab, pos, Quaternion.identity, TileContainer);
 		newTile.tileIndex = NewIndex(latestTile.tileIndex, direction);
+		newTile.DistanceFromStart = latestTile.DistanceFromStart + 2 * tileBounds.extents.x;
 		newTile.transform.forward = direction;
 		newTile.back = latestTile;
 		latestTile.forward = newTile;
@@ -192,14 +193,19 @@ public class LevelGenerator : MonoBehaviour {
 	}
 
 	void DecorateNewTile(GroundTile newTile) {
-		var prefabs = obstaclePrefabs.Where(o => GameManager.Instance.TotalDistance >= o.minDistance && Random.value < obstacleChance);
+		if (Random.value < obstacleChance) {
+			var dist = newTile.DistanceFromStart;
+			var prefabs = obstaclePrefabs.Where (o => dist >= o.minDistance);
+			var count = prefabs.Count();
+			var prefab = prefabs.ElementAt (Random.Range(0, count));
 
-		foreach (var prefab in prefabs) {
-			var obj = (Obstacle)Instantiate(prefab);
-			obj.transform.SetParent (newTile.transform, true);
-			obj.transform.position += newTile.transform.position;
-			obj.transform.forward = newTile.transform.forward;
-			//newTile.GetComponent<Renderer> ().material = obj.GetComponent<Renderer> ().material;		// mark tile by painting in object's material
+			if (prefab != null) {
+				var obj = (Obstacle)Instantiate (prefab);
+				obj.transform.SetParent (newTile.transform, true);
+				obj.transform.forward = newTile.transform.forward;
+				obj.transform.position += newTile.transform.position;
+				//newTile.GetComponent<Renderer> ().material = obj.GetComponent<Renderer> ().material;		// mark tile by painting in object's material
+			}
 		}
 	}
 }

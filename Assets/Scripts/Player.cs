@@ -5,6 +5,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(MeshRenderer))]
 public class Player : MonoBehaviour {
 	public CollisionBuffer frontBuffer;
+	public CollisionBuffer footBuffer;
 	public float speed = 6.0f, maxSpeed = 16, acceleration = 1;
 	public float turnSpeed = 3;
 	public float strafeSpeed = 10;
@@ -15,8 +16,7 @@ public class Player : MonoBehaviour {
 	Quaternion rightRotation;
 	Rigidbody body;
 	MeshRenderer mesh;
-	int groundLayerMask, groundLayerIndex;
-	HashSet<GameObject> groundColliders;
+	int groundLayerMask;
 
 	float horizontalMovement;
 	Vector3 targetForward;
@@ -33,15 +33,13 @@ public class Player : MonoBehaviour {
 	}
 
 	public bool IsOnGround {
-		get { return groundColliders.Count > 0; }
+		get { return footBuffer.colliders.Count > 1; }		// always collides with player
 	}
 
 	void Awake () {
 		groundLayerMask = LayerMask.GetMask("Ground");
-		groundLayerIndex = LayerMask.NameToLayer ("Ground");
 		Debug.Assert (groundLayerMask != 0);
 
-		groundColliders = new HashSet<GameObject> ();
 		body = GetComponent<Rigidbody> ();
 		mesh = GetComponent<MeshRenderer> ();
 		targetForward = Forward;
@@ -126,7 +124,9 @@ public class Player : MonoBehaviour {
 
 	void CheckJumpInput() {
 		if (IsOnGround && Input.GetAxisRaw ("Jump") > 0) {
-			body.velocity += Vector3.up * jumpPower;
+			var v = body.velocity;
+			v.y = jumpPower;
+			body.velocity = v;
 		}
 	}
 
@@ -167,16 +167,9 @@ public class Player : MonoBehaviour {
 	}
 
 	void OnCollisionEnter(Collision other) {
-		if (other.gameObject.layer == groundLayerIndex && other.contacts[0].point.y < transform.position.y) {
-			groundColliders.Add (other.gameObject);
-		}
 		if (frontBuffer != null && frontBuffer.colliders.Contains (other.collider)) {
 			// we ran into something -> Dead!
 			GameManager.Instance.GameOver();
 		}
-	}
-
-	void OnCollisionExit(Collision other) {
-		groundColliders.Remove(other.gameObject);
 	}
 }

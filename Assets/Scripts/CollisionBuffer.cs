@@ -7,7 +7,7 @@ public class CollisionBuffer : MonoBehaviour {
 		private set;
 	}
 
-	CollisionBuffer() {
+	void Start() {
 		colliders = new HashSet<Collider> ();
 	}
 

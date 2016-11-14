@@ -27,6 +27,11 @@ public class GroundTile : MonoBehaviour {
 		set;
 	}
 
+	public float DistanceFromStart {
+		get;
+		set;
+	}
+
 	void Start () {
 	}
 
