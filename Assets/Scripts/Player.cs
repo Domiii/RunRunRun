@@ -141,7 +141,7 @@ public class Player : MonoBehaviour {
 		horizontalMovement = Input.GetAxisRaw("Horizontal");
 		var tile = CurrentGroundTile;
 		if (tile != null && !Mathf.Approximately (tile.transform.rotation.eulerAngles.y, transform.root.eulerAngles.y)) {
-			// turn in direction of 
+			// turn in direction of tile
 			targetForward = tile.transform.forward;
 		}
 	}
